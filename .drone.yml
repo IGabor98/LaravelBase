@@ -1,0 +1,53 @@
+kind: pipeline
+name: drone-config
+
+clone:
+  git:
+    image: plugins/git
+    depth: 50
+    tags: true
+
+steps:
+  - name: tests
+    image: laradock/workspace:2.2-7.2
+    group: laravel
+    commands:
+      - php -v
+      - composer -V
+      - cp .env.example .env
+      - composer install
+      - php artisan key:generate
+      - php artisan jwt:secret
+      - vendor/bin/phpunit
+
+  - name: deploy
+    image: appleboy/drone-ssh
+    when:
+      event:
+        - push
+      branch:
+        - master
+    settings:
+      host:
+        - ${HOST}
+      username: ubuntu
+      ssh_key:
+        from_secret: ssh_key
+      port: 22
+      script:
+        - cd /home/ubuntu/crm
+        - git pull
+        - make composer-install
+        - make migrate
+        - make seed
+        - make seed-module
+        - make swagger-generate
+        - make clear-cache
+
+trigger:
+  event:
+    - push
+    - pull_request
+  branch:
+    - master
+    - develop
