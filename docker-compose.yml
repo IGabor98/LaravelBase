@@ -1,0 +1,73 @@
+version: '2'
+
+services:
+  app:
+    build:
+      context: ./docker/app
+      dockerfile: app.dockerfile
+    working_dir: /var/www/crm
+    volumes:
+      - ./:/var/www/crm
+      - ../crm-front:/var/www/crm-front
+    restart: always
+
+  nginx:
+    container_name: nginx
+    image: nginx:alpine
+    ports:
+      - 80:80
+      - 8080:8080
+    volumes:
+      - ./docker/nginx/conf.d:/etc/nginx/conf.d/
+      - ./docker/nginx/logs:/var/log/nginx
+    volumes_from:
+      - app
+    restart: always
+
+  database:
+    image: mysql:5.7
+    volumes:
+      - crm-data:/var/lib/mysql
+    environment:
+      - MYSQL_DATABASE=${DB_DATABASE}
+      - MYSQL_USER=${DB_USERNAME}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+      - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+    ports:
+      - ${DB_PORT}:3306
+    restart: always
+
+  rabbitmq:
+    image: rabbitmq:3-management
+    ports:
+      - 15672:15672
+      - 5672:5672
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_LOGIN}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    volumes:
+      - rabbimq-data:/var/lib/rabbitmq/
+    restart: always
+
+  redis:
+    image: redis:4.0.5-alpine
+    command: ["redis-server", "--appendonly", "yes", "--requirepass", "kh4Xzct^KeaJ9jmV"]
+    ports:
+      - 6379:6379
+    volumes:
+      - redis-data:/data
+    restart: always
+
+  adminer:
+    image: adminer
+    ports:
+      - 8081:8080
+    links:
+      - database:db
+    restart: always
+
+
+volumes:
+  crm-data:
+  rabbimq-data:
+  redis-data:
